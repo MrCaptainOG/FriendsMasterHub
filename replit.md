@@ -1,8 +1,8 @@
-# Workspace
+# FriendsMasterHub Workspace
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+pnpm workspace monorepo using TypeScript. Minecraft server community website.
 
 ## Stack
 
@@ -11,86 +11,77 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
+- **Frontend**: React + Vite (Tailwind CSS v4, Wouter routing)
+- **Database (builds)**: MongoDB via Mongoose (`mongodb+srv://...`)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Build**: esbuild (ESM bundle)
+- **Bot**: mineflayer (externalized from bundle)
+- **Image uploads**: ImgBB API
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server + bot + MongoDB
+│   └── friendsmasterhub/   # React + Vite frontend (at root /)
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   └── db/                 # Drizzle ORM (not used, MongoDB used instead)
+├── scripts/                # Utility scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
-## TypeScript & Composite Projects
+## Features
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+### Website Pages
+- **Home** (`/`) — Server status card (live check via mcstatus.io), connect info, copy IP:Port button, bot status
+- **Gallery** (`/gallery`) — Public approved builds, image cards
+- **Submit Build** (`/submit`) — Upload build screenshots (to ImgBB), submit form
+- **Admin** (`/admin`) — Password-protected (9897162621762) review panel, approve/reject/award builds
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+### API Routes (all at `/api`)
+- `GET /api/server/status` — Proxies mcstatus.io for server online/offline status
+- `GET /api/builds` — Public approved builds from MongoDB
+- `POST /api/builds` — Submit new build (uploads to ImgBB, saves to MongoDB)
+- `GET /api/builds/admin?password=xxx` — All builds (admin)
+- `PATCH /api/builds/:id/status?password=xxx` — Update build status
+- `POST /api/builds/:id/award?password=xxx` — Award build (queues bot /give command)
+- `GET /api/bot/status` — Minecraft bot status
 
-## Root Scripts
+### Minecraft Bot
+- Runs 24/7, connects to `FriendsMasterHub.aternos.me:19276`
+- Auto-reconnects if kicked/disconnected
+- Sends chat messages every ~3 minutes
+- Random movement (jump, sneak, look, move) every 10-20 ticks
+- Tracks online players, executes `/give` commands for awards
+- Awards are queued until both server and player are online
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+### MongoDB
+- Connection: `mongodb+srv://DBJAVAGAMER:...@javagamerop.2rruqhw.mongodb.net/FriendsSMP/`
+- Collection: `imageinfos`
+- Status enum: `unchecked`, `approved`, `rejected`, `awarded`
+- Rejected builds auto-deleted after 24 hours
 
-## Packages
+## Important Paths
 
-### `artifacts/api-server` (`@workspace/api-server`)
+- Frontend artifact: `artifacts/friendsmasterhub/`
+- API server: `artifacts/api-server/`
+- Bot logic: `artifacts/api-server/src/lib/bot.ts`
+- MongoDB model: `artifacts/api-server/src/lib/mongodb.ts`
+- OpenAPI spec: `lib/api-spec/openapi.yaml`
+- Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+## ImgBB
+- API Key: `7e3d3f9d6b1ce807a6c0383643a41694`
+- Used in `artifacts/api-server/src/routes/builds.ts`
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+## mineflayer externalization
+- mineflayer is externalized from the esbuild bundle (too large to bundle)
+- Added to external list in `artifacts/api-server/build.mjs`

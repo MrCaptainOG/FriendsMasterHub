@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=VT323&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Outfit', sans-serif;
+  --font-display: 'VT323', monospace;
+
+  /* Dark Theme Palette with Emerald Accents */
+  --color-background: hsl(220 10% 8%);
+  --color-foreground: hsl(0 0% 98%);
+  
+  --color-card: hsl(220 10% 12%);
+  --color-card-foreground: hsl(0 0% 98%);
+  
+  --color-popover: hsl(220 10% 12%);
+  --color-popover-foreground: hsl(0 0% 98%);
+  
+  --color-primary: hsl(142 70% 45%);
+  --color-primary-foreground: hsl(144 100% 11%);
+  
+  --color-secondary: hsl(220 10% 16%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+  
+  --color-muted: hsl(220 10% 16%);
+  --color-muted-foreground: hsl(220 5% 65%);
+  
+  --color-accent: hsl(45 93% 47%);
+  --color-accent-foreground: hsl(45 93% 10%);
+  
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  
+  --color-border: hsl(220 10% 20%);
+  --color-input: hsl(220 10% 20%);
+  --color-ring: hsl(142 70% 45%);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/30 selection:text-primary;
+    background-image: 
+      radial-gradient(circle at 50% 0%, hsl(142 70% 45% / 0.05) 0%, transparent 50%),
+      linear-gradient(to bottom, transparent, hsl(220 10% 8%));
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+/* Custom scrollbar for a polished feel */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-secondary border-2 border-solid border-background rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary/50;
+}

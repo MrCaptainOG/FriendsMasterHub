@@ -100,6 +100,13 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "mineflayer",
+      "mineflayer-*",
+      "vec3",
+      "minecraft-data",
+      "prismarine-*",
+      "nbt",
+      "node-minecraft-protocol",
     ],
     sourcemap: "linked",
     plugins: [

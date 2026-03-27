@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "For page transitions and fluid animations matching the gaming theme"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+  "react-hook-form": "For form state management"
+  "@hookform/resolvers": "Zod resolver for react-hook-form validation"
+  "zod": "Schema validation for forms"
+  "date-fns": "For formatting submission dates"
+
+images:
+  - path: "artifacts/friendsmasterhub/public/images/hero-bg.png"
+    description: "Dark, moody Minecraft-inspired landscape background with subtle emerald green glowing accents, low poly style but high resolution, blurred for depth"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using generated API client hooks from @workspace/api-client-react
+  - Using lucide-react for standard icons
+  - Applying a dark, emerald-accented theme for a premium gaming feel

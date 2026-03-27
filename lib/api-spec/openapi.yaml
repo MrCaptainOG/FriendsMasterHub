@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FriendsMasterHub API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: server
+    description: Minecraft server status
+  - name: builds
+    description: Build image submissions and gallery
+  - name: bot
+    description: Minecraft bot status and control
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +28,185 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /server/status:
+    get:
+      operationId: getServerStatus
+      tags: [server]
+      summary: Get Minecraft server status
+      responses:
+        "200":
+          description: Server status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerStatus"
+
+  /builds:
+    get:
+      operationId: getBuilds
+      tags: [builds]
+      summary: Get all approved builds (public gallery)
+      responses:
+        "200":
+          description: List of approved builds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  builds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Build"
+                required: [builds]
+
+    post:
+      operationId: submitBuild
+      tags: [builds]
+      summary: Submit a new build image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitBuildRequest"
+      responses:
+        "201":
+          description: Build submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Build"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /builds/admin:
+    get:
+      operationId: getAdminBuilds
+      tags: [builds]
+      summary: Get all builds (admin, password protected)
+      parameters:
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All builds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  builds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Build"
+                required: [builds]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /builds/{id}/status:
+    patch:
+      operationId: updateBuildStatus
+      tags: [builds]
+      summary: Update build status (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBuildStatusRequest"
+      responses:
+        "200":
+          description: Build updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Build"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /builds/{id}/award:
+    post:
+      operationId: awardBuild
+      tags: [builds]
+      summary: Award a build (give item to uploader via bot)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AwardBuildRequest"
+      responses:
+        "200":
+          description: Award queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AwardResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      tags: [bot]
+      summary: Get bot status
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +214,130 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ServerStatus:
+      type: object
+      properties:
+        online:
+          type: boolean
+        players:
+          type: object
+          properties:
+            online:
+              type: integer
+            max:
+              type: integer
+          required: [online, max]
+        version:
+          type: string
+        motd:
+          type: string
+        address:
+          type: string
+        port:
+          type: integer
+      required: [online, address, port]
+
+    Build:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        uploaderName:
+          type: string
+        status:
+          type: string
+          enum: [unchecked, approved, rejected, awarded]
+        rejectedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required: [_id, title, description, imageUrl, uploaderName, status, createdAt]
+
+    SubmitBuildRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageBase64:
+          type: string
+        uploaderName:
+          type: string
+      required: [title, description, imageBase64, uploaderName]
+
+    UpdateBuildStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unchecked, approved, rejected, awarded]
+      required: [status]
+
+    AwardBuildRequest:
+      type: object
+      properties:
+        item:
+          type: string
+        quantity:
+          type: integer
+      required: [item, quantity]
+
+    AwardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        queued:
+          type: boolean
+      required: [success, message]
+
+    BotStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        username:
+          type: string
+        health:
+          type: number
+        food:
+          type: number
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+        pingMs:
+          type: number
+        uptime:
+          type: integer
+        activityLog:
+          type: array
+          items:
+            type: string
+        pendingAwards:
+          type: integer
+      required: [connected, username, activityLog]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
