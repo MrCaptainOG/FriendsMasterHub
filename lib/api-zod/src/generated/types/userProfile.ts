@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AwardResponse {
-  success: boolean;
-  message: string;
-  newCredits?: number;
+export interface UserProfile {
+  _id: string;
+  usertag: string;
+  credits: number;
+  createdAt: string;
 }

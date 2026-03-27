@@ -32,6 +32,43 @@ export const GetServerStatusResponse = zod.object({
 });
 
 /**
+ * @summary Register with game usertag and password
+ */
+export const RegisterBody = zod.object({
+  usertag: zod.string(),
+  password: zod.string(),
+});
+
+/**
+ * @summary Login with game usertag and password
+ */
+export const LoginBody = zod.object({
+  usertag: zod.string(),
+  password: zod.string(),
+});
+
+export const LoginResponse = zod.object({
+  token: zod.string(),
+  usertag: zod.string(),
+  credits: zod.number(),
+});
+
+/**
+ * @summary Get current user profile
+ */
+export const GetMeQueryParams = zod.object({
+  usertag: zod.coerce.string(),
+  token: zod.coerce.string(),
+});
+
+export const GetMeResponse = zod.object({
+  _id: zod.string(),
+  usertag: zod.string(),
+  credits: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
  * @summary Get all approved builds (public gallery)
  */
 export const GetBuildsResponse = zod.object({
@@ -60,7 +97,7 @@ export const SubmitBuildBody = zod.object({
 });
 
 /**
- * @summary Get all builds (admin, password protected)
+ * @summary Get all builds (admin)
  */
 export const GetAdminBuildsQueryParams = zod.object({
   password: zod.coerce.string(),
@@ -108,7 +145,7 @@ export const UpdateBuildStatusResponse = zod.object({
 });
 
 /**
- * @summary Award a build (give item to uploader via bot)
+ * @summary Award credits to a build uploader
  */
 export const AwardBuildParams = zod.object({
   id: zod.coerce.string(),
@@ -119,14 +156,13 @@ export const AwardBuildQueryParams = zod.object({
 });
 
 export const AwardBuildBody = zod.object({
-  item: zod.string(),
-  quantity: zod.number(),
+  credits: zod.number(),
 });
 
 export const AwardBuildResponse = zod.object({
   success: zod.boolean(),
   message: zod.string(),
-  queued: zod.boolean().optional(),
+  newCredits: zod.number().optional(),
 });
 
 /**
@@ -148,4 +184,136 @@ export const GetBotStatusResponse = zod.object({
   uptime: zod.number().optional(),
   activityLog: zod.array(zod.string()),
   pendingAwards: zod.number().optional(),
+});
+
+/**
+ * @summary Get all users with credentials (admin)
+ */
+export const GetAdminUsersQueryParams = zod.object({
+  password: zod.coerce.string(),
+});
+
+export const GetAdminUsersResponse = zod.object({
+  users: zod.array(
+    zod.object({
+      _id: zod.string(),
+      usertag: zod.string(),
+      password: zod.string(),
+      credits: zod.number(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add or remove credits from a user (admin)
+ */
+export const AdjustUserCreditsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdjustUserCreditsQueryParams = zod.object({
+  password: zod.coerce.string(),
+});
+
+export const AdjustUserCreditsBody = zod.object({
+  amount: zod.number().describe("Positive to add, negative to remove"),
+});
+
+export const AdjustUserCreditsResponse = zod.object({
+  _id: zod.string(),
+  usertag: zod.string(),
+  password: zod.string(),
+  credits: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Get all shop items
+ */
+export const GetItemsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      _id: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+      creditPrice: zod.number(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create shop item (admin)
+ */
+export const CreateItemQueryParams = zod.object({
+  password: zod.coerce.string(),
+});
+
+export const CreateItemBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  imageBase64: zod.string().nullish(),
+  creditPrice: zod.number(),
+});
+
+/**
+ * @summary Edit shop item (admin)
+ */
+export const UpdateItemParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateItemQueryParams = zod.object({
+  password: zod.coerce.string(),
+});
+
+export const UpdateItemBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  imageBase64: zod.string().nullish(),
+  creditPrice: zod.number(),
+});
+
+export const UpdateItemResponse = zod.object({
+  _id: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  creditPrice: zod.number(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete shop item (admin)
+ */
+export const DeleteItemParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const DeleteItemQueryParams = zod.object({
+  password: zod.coerce.string(),
+});
+
+export const DeleteItemResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Buy a shop item with credits
+ */
+export const BuyItemParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const BuyItemBody = zod.object({
+  usertag: zod.string(),
+  token: zod.string(),
+});
+
+export const BuyItemResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+  remainingCredits: zod.number(),
 });

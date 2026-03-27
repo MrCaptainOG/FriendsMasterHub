@@ -9,9 +9,7 @@ let connected = false;
 export async function connectMongo() {
   if (connected) return;
   try {
-    await mongoose.connect(MONGODB_URI, {
-      dbName: "FriendsSMP",
-    });
+    await mongoose.connect(MONGODB_URI, { dbName: "FriendsSMP" });
     connected = true;
     logger.info("MongoDB connected");
   } catch (err) {
@@ -20,6 +18,7 @@ export async function connectMongo() {
   }
 }
 
+// ── Build Submissions ─────────────────────────────────────────────────────────
 const imageInfoSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
@@ -35,7 +34,33 @@ const imageInfoSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 export const ImageInfo =
   mongoose.models.imageinfos ||
   mongoose.model("imageinfos", imageInfoSchema, "imageinfos");
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+const userSchema = new mongoose.Schema(
+  {
+    usertag: { type: String, required: true, unique: true, trim: true },
+    password: { type: String, required: true },
+    token: { type: String },
+    credits: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+export const User =
+  mongoose.models.users || mongoose.model("users", userSchema, "users");
+
+// ── Shop Items ────────────────────────────────────────────────────────────────
+const shopItemSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    description: { type: String, default: "" },
+    imageUrl: { type: String, default: null },
+    creditPrice: { type: Number, required: true },
+  },
+  { timestamps: true }
+);
+export const ShopItem =
+  mongoose.models.shopitems ||
+  mongoose.model("shopitems", shopItemSchema, "shopitems");

@@ -7,6 +7,5 @@
  */
 
 export interface AwardBuildRequest {
-  item: string;
-  quantity: number;
+  credits: number;
 }

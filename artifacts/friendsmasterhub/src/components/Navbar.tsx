@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/gallery", label: "Gallery" },
-  { href: "/submit", label: "Submit Build" },
-  { href: "/admin", label: "Admin" },
-];
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Navbar() {
   const [location] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
+
+  const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "/gallery", label: "Gallery" },
+    { href: "/shop", label: "Shop" },
+    { href: "/submit", label: "Submit Build" },
+    { href: "/admin", label: "Admin" },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
@@ -20,7 +23,7 @@ export default function Navbar() {
             <img
               src="https://i.ibb.co/4nyMLy4d/Minecraft-friends-hub-logo-design.png"
               alt="FriendsMasterHub"
-              className="h-9 w-9 object-contain"
+              className="h-9 w-9 object-contain rounded"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
             <span className="font-bold text-lg hidden sm:block">
@@ -35,13 +38,7 @@ export default function Navbar() {
             const active = location === link.href;
             return (
               <Link key={link.href} href={link.href}>
-                <button
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                >
+                <button className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                   {link.label}
                 </button>
               </Link>
@@ -49,17 +46,33 @@ export default function Navbar() {
           })}
         </div>
 
+        {/* Auth section - desktop */}
+        <div className="hidden md:flex items-center gap-2">
+          {user ? (
+            <>
+              <div className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-3 py-1.5">
+                <span className="text-sm font-medium">{user.usertag}</span>
+                <span className="text-xs text-primary font-bold border-l border-border pl-2">{user.credits} ⭐</span>
+              </div>
+              <button onClick={logout} className="px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive border border-border rounded-lg transition-colors">
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link href="/login">
+              <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition-all shadow-sm shadow-primary/20">
+                Login
+              </button>
+            </Link>
+          )}
+        </div>
+
         {/* Mobile menu button */}
-        <button
-          className="md:hidden p-2 rounded-lg hover:bg-secondary transition-all"
-          onClick={() => setMenuOpen((v) => !v)}
-        >
+        <button className="md:hidden p-2 rounded-lg hover:bg-secondary transition-all" onClick={() => setMenuOpen((v) => !v)}>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            {menuOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
+            {menuOpen
+              ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
           </svg>
         </button>
       </div>
@@ -71,19 +84,27 @@ export default function Navbar() {
             const active = location === link.href;
             return (
               <Link key={link.href} href={link.href}>
-                <button
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                  onClick={() => setMenuOpen(false)}
-                >
+                <button className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-all ${active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                  onClick={() => setMenuOpen(false)}>
                   {link.label}
                 </button>
               </Link>
             );
           })}
+          <div className="border-t border-border pt-2 mt-2">
+            {user ? (
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-sm font-medium">{user.usertag} <span className="text-primary">{user.credits} ⭐</span></span>
+                <button onClick={() => { logout(); setMenuOpen(false); }} className="text-sm text-muted-foreground hover:text-destructive transition-colors">Logout</button>
+              </div>
+            ) : (
+              <Link href="/login">
+                <button className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold" onClick={() => setMenuOpen(false)}>
+                  Login / Register
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </nav>

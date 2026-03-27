@@ -5,9 +5,8 @@
  * FriendsMasterHub API
  * OpenAPI spec version: 0.1.0
  */
+import type { ShopItem } from "./shopItem";
 
-export interface AwardResponse {
-  success: boolean;
-  message: string;
-  newCredits?: number;
-}
+export type GetItems200 = {
+  items: ShopItem[];
+};

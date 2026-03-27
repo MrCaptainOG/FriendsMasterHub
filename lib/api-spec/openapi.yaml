@@ -8,13 +8,12 @@ servers:
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: server
-    description: Minecraft server status
   - name: builds
-    description: Build image submissions and gallery
   - name: bot
-    description: Minecraft bot status and control
+  - name: auth
+  - name: users
+  - name: items
 paths:
   /healthz:
     get:
@@ -41,6 +40,86 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServerStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register with game usertag and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with game usertag and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user profile
+      parameters:
+        - in: query
+          name: usertag
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /builds:
     get:
@@ -89,7 +168,7 @@ paths:
     get:
       operationId: getAdminBuilds
       tags: [builds]
-      summary: Get all builds (admin, password protected)
+      summary: Get all builds (admin)
       parameters:
         - in: query
           name: password
@@ -162,7 +241,7 @@ paths:
     post:
       operationId: awardBuild
       tags: [builds]
-      summary: Award a build (give item to uploader via bot)
+      summary: Award credits to a build uploader
       parameters:
         - in: path
           name: id
@@ -182,7 +261,7 @@ paths:
               $ref: "#/components/schemas/AwardBuildRequest"
       responses:
         "200":
-          description: Award queued
+          description: Credits awarded
           content:
             application/json:
               schema:
@@ -206,6 +285,228 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BotStatus"
+
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [users]
+      summary: Get all users with credentials (admin)
+      parameters:
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminUser"
+                required: [users]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{id}/credits:
+    patch:
+      operationId: adjustUserCredits
+      tags: [users]
+      summary: Add or remove credits from a user (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustCreditsRequest"
+      responses:
+        "200":
+          description: Credits updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /items:
+    get:
+      operationId: getItems
+      tags: [items]
+      summary: Get all shop items
+      responses:
+        "200":
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ShopItem"
+                required: [items]
+
+    post:
+      operationId: createItem
+      tags: [items]
+      summary: Create shop item (admin)
+      parameters:
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertItemRequest"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShopItem"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /items/{id}:
+    patch:
+      operationId: updateItem
+      tags: [items]
+      summary: Edit shop item (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertItemRequest"
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShopItem"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteItem
+      tags: [items]
+      summary: Delete shop item (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: password
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /items/{id}/buy:
+    post:
+      operationId: buyItem
+      tags: [items]
+      summary: Buy a shop item with credits
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyItemRequest"
+      responses:
+        "200":
+          description: Purchase successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuyItemResponse"
+        "400":
+          description: Insufficient credits or error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   schemas:
@@ -238,6 +539,62 @@ components:
         port:
           type: integer
       required: [online, address, port]
+
+    AuthRequest:
+      type: object
+      properties:
+        usertag:
+          type: string
+        password:
+          type: string
+      required: [usertag, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        usertag:
+          type: string
+        credits:
+          type: integer
+      required: [token, usertag, credits]
+
+    UserProfile:
+      type: object
+      properties:
+        _id:
+          type: string
+        usertag:
+          type: string
+        credits:
+          type: integer
+        createdAt:
+          type: string
+      required: [_id, usertag, credits, createdAt]
+
+    AdminUser:
+      type: object
+      properties:
+        _id:
+          type: string
+        usertag:
+          type: string
+        password:
+          type: string
+        credits:
+          type: integer
+        createdAt:
+          type: string
+      required: [_id, usertag, password, credits, createdAt]
+
+    AdjustCreditsRequest:
+      type: object
+      properties:
+        amount:
+          type: integer
+          description: Positive to add, negative to remove
+      required: [amount]
 
     Build:
       type: object
@@ -286,11 +643,9 @@ components:
     AwardBuildRequest:
       type: object
       properties:
-        item:
-          type: string
-        quantity:
+        credits:
           type: integer
-      required: [item, quantity]
+      required: [credits]
 
     AwardResponse:
       type: object
@@ -299,9 +654,62 @@ components:
           type: boolean
         message:
           type: string
-        queued:
-          type: boolean
+        newCredits:
+          type: integer
       required: [success, message]
+
+    ShopItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        creditPrice:
+          type: integer
+        createdAt:
+          type: string
+      required: [_id, title, creditPrice, createdAt]
+
+    UpsertItemRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageBase64:
+          type: string
+          nullable: true
+        creditPrice:
+          type: integer
+      required: [title, creditPrice]
+
+    BuyItemRequest:
+      type: object
+      properties:
+        usertag:
+          type: string
+        token:
+          type: string
+      required: [usertag, token]
+
+    BuyItemResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        remainingCredits:
+          type: integer
+      required: [success, message, remainingCredits]
 
     BotStatus:
       type: object

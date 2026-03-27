@@ -17,20 +17,38 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdjustCreditsRequest,
+  AdjustUserCreditsParams,
+  AdminUser,
+  AuthRequest,
+  AuthResponse,
   AwardBuildParams,
   AwardBuildRequest,
   AwardResponse,
   BotStatus,
   Build,
+  BuyItemRequest,
+  BuyItemResponse,
+  CreateItemParams,
+  DeleteItem200,
+  DeleteItemParams,
   ErrorResponse,
   GetAdminBuilds200,
   GetAdminBuildsParams,
+  GetAdminUsers200,
+  GetAdminUsersParams,
   GetBuilds200,
+  GetItems200,
+  GetMeParams,
   HealthStatus,
   ServerStatus,
+  ShopItem,
   SubmitBuildRequest,
   UpdateBuildStatusParams,
   UpdateBuildStatusRequest,
+  UpdateItemParams,
+  UpsertItemRequest,
+  UserProfile,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -193,6 +211,262 @@ export function useGetServerStatus<
 }
 
 /**
+ * @summary Register with game usertag and password
+ */
+export const getRegisterUrl = () => {
+  return `/api/auth/register`;
+};
+
+export const register = async (
+  authRequest: AuthRequest,
+  options?: RequestInit,
+): Promise<AuthResponse> => {
+  return customFetch<AuthResponse>(getRegisterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authRequest),
+  });
+};
+
+export const getRegisterMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof register>>,
+    TError,
+    { data: BodyType<AuthRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof register>>,
+  TError,
+  { data: BodyType<AuthRequest> },
+  TContext
+> => {
+  const mutationKey = ["register"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof register>>,
+    { data: BodyType<AuthRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return register(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof register>>
+>;
+export type RegisterMutationBody = BodyType<AuthRequest>;
+export type RegisterMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Register with game usertag and password
+ */
+export const useRegister = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof register>>,
+    TError,
+    { data: BodyType<AuthRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof register>>,
+  TError,
+  { data: BodyType<AuthRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterMutationOptions(options));
+};
+
+/**
+ * @summary Login with game usertag and password
+ */
+export const getLoginUrl = () => {
+  return `/api/auth/login`;
+};
+
+export const login = async (
+  authRequest: AuthRequest,
+  options?: RequestInit,
+): Promise<AuthResponse> => {
+  return customFetch<AuthResponse>(getLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(authRequest),
+  });
+};
+
+export const getLoginMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof login>>,
+    TError,
+    { data: BodyType<AuthRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof login>>,
+  TError,
+  { data: BodyType<AuthRequest> },
+  TContext
+> => {
+  const mutationKey = ["login"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof login>>,
+    { data: BodyType<AuthRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return login(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof login>>
+>;
+export type LoginMutationBody = BodyType<AuthRequest>;
+export type LoginMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Login with game usertag and password
+ */
+export const useLogin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof login>>,
+    TError,
+    { data: BodyType<AuthRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof login>>,
+  TError,
+  { data: BodyType<AuthRequest> },
+  TContext
+> => {
+  return useMutation(getLoginMutationOptions(options));
+};
+
+/**
+ * @summary Get current user profile
+ */
+export const getGetMeUrl = (params: GetMeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/auth/me?${stringifiedParams}`
+    : `/api/auth/me`;
+};
+
+export const getMe = async (
+  params: GetMeParams,
+  options?: RequestInit,
+): Promise<UserProfile> => {
+  return customFetch<UserProfile>(getGetMeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMeQueryKey = (params?: GetMeParams) => {
+  return [`/api/auth/me`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetMeParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMeQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMe>>> = ({
+    signal,
+  }) => getMe(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMeQueryResult = NonNullable<Awaited<ReturnType<typeof getMe>>>;
+export type GetMeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get current user profile
+ */
+
+export function useGetMe<
+  TData = Awaited<ReturnType<typeof getMe>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetMeParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMeQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get all approved builds (public gallery)
  */
 export const getGetBuildsUrl = () => {
@@ -346,7 +620,7 @@ export const useSubmitBuild = <
 };
 
 /**
- * @summary Get all builds (admin, password protected)
+ * @summary Get all builds (admin)
  */
 export const getGetAdminBuildsUrl = (params: GetAdminBuildsParams) => {
   const normalizedParams = new URLSearchParams();
@@ -413,7 +687,7 @@ export type GetAdminBuildsQueryResult = NonNullable<
 export type GetAdminBuildsQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Get all builds (admin, password protected)
+ * @summary Get all builds (admin)
  */
 
 export function useGetAdminBuilds<
@@ -563,7 +837,7 @@ export const useUpdateBuildStatus = <
 };
 
 /**
- * @summary Award a build (give item to uploader via bot)
+ * @summary Award credits to a build uploader
  */
 export const getAwardBuildUrl = (id: string, params: AwardBuildParams) => {
   const normalizedParams = new URLSearchParams();
@@ -640,7 +914,7 @@ export type AwardBuildMutationBody = BodyType<AwardBuildRequest>;
 export type AwardBuildMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Award a build (give item to uploader via bot)
+ * @summary Award credits to a build uploader
  */
 export const useAwardBuild = <
   TError = ErrorType<ErrorResponse>,
@@ -736,3 +1010,668 @@ export function useGetBotStatus<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get all users with credentials (admin)
+ */
+export const getGetAdminUsersUrl = (params: GetAdminUsersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/users?${stringifiedParams}`
+    : `/api/admin/users`;
+};
+
+export const getAdminUsers = async (
+  params: GetAdminUsersParams,
+  options?: RequestInit,
+): Promise<GetAdminUsers200> => {
+  return customFetch<GetAdminUsers200>(getGetAdminUsersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminUsersQueryKey = (params?: GetAdminUsersParams) => {
+  return [`/api/admin/users`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAdminUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminUsers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetAdminUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminUsersQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminUsers>>> = ({
+    signal,
+  }) => getAdminUsers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminUsers>>
+>;
+export type GetAdminUsersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get all users with credentials (admin)
+ */
+
+export function useGetAdminUsers<
+  TData = Awaited<ReturnType<typeof getAdminUsers>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetAdminUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminUsersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add or remove credits from a user (admin)
+ */
+export const getAdjustUserCreditsUrl = (
+  id: string,
+  params: AdjustUserCreditsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/users/${id}/credits?${stringifiedParams}`
+    : `/api/admin/users/${id}/credits`;
+};
+
+export const adjustUserCredits = async (
+  id: string,
+  adjustCreditsRequest: AdjustCreditsRequest,
+  params: AdjustUserCreditsParams,
+  options?: RequestInit,
+): Promise<AdminUser> => {
+  return customFetch<AdminUser>(getAdjustUserCreditsUrl(id, params), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adjustCreditsRequest),
+  });
+};
+
+export const getAdjustUserCreditsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adjustUserCredits>>,
+    TError,
+    {
+      id: string;
+      data: BodyType<AdjustCreditsRequest>;
+      params: AdjustUserCreditsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adjustUserCredits>>,
+  TError,
+  {
+    id: string;
+    data: BodyType<AdjustCreditsRequest>;
+    params: AdjustUserCreditsParams;
+  },
+  TContext
+> => {
+  const mutationKey = ["adjustUserCredits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adjustUserCredits>>,
+    {
+      id: string;
+      data: BodyType<AdjustCreditsRequest>;
+      params: AdjustUserCreditsParams;
+    }
+  > = (props) => {
+    const { id, data, params } = props ?? {};
+
+    return adjustUserCredits(id, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdjustUserCreditsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adjustUserCredits>>
+>;
+export type AdjustUserCreditsMutationBody = BodyType<AdjustCreditsRequest>;
+export type AdjustUserCreditsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add or remove credits from a user (admin)
+ */
+export const useAdjustUserCredits = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adjustUserCredits>>,
+    TError,
+    {
+      id: string;
+      data: BodyType<AdjustCreditsRequest>;
+      params: AdjustUserCreditsParams;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adjustUserCredits>>,
+  TError,
+  {
+    id: string;
+    data: BodyType<AdjustCreditsRequest>;
+    params: AdjustUserCreditsParams;
+  },
+  TContext
+> => {
+  return useMutation(getAdjustUserCreditsMutationOptions(options));
+};
+
+/**
+ * @summary Get all shop items
+ */
+export const getGetItemsUrl = () => {
+  return `/api/items`;
+};
+
+export const getItems = async (options?: RequestInit): Promise<GetItems200> => {
+  return customFetch<GetItems200>(getGetItemsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetItemsQueryKey = () => {
+  return [`/api/items`] as const;
+};
+
+export const getGetItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getItems>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getItems>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetItemsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getItems>>> = ({
+    signal,
+  }) => getItems({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getItems>>
+>;
+export type GetItemsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all shop items
+ */
+
+export function useGetItems<
+  TData = Awaited<ReturnType<typeof getItems>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getItems>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetItemsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create shop item (admin)
+ */
+export const getCreateItemUrl = (params: CreateItemParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/items?${stringifiedParams}`
+    : `/api/items`;
+};
+
+export const createItem = async (
+  upsertItemRequest: UpsertItemRequest,
+  params: CreateItemParams,
+  options?: RequestInit,
+): Promise<ShopItem> => {
+  return customFetch<ShopItem>(getCreateItemUrl(params), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertItemRequest),
+  });
+};
+
+export const getCreateItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createItem>>,
+    TError,
+    { data: BodyType<UpsertItemRequest>; params: CreateItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createItem>>,
+  TError,
+  { data: BodyType<UpsertItemRequest>; params: CreateItemParams },
+  TContext
+> => {
+  const mutationKey = ["createItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createItem>>,
+    { data: BodyType<UpsertItemRequest>; params: CreateItemParams }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return createItem(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createItem>>
+>;
+export type CreateItemMutationBody = BodyType<UpsertItemRequest>;
+export type CreateItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create shop item (admin)
+ */
+export const useCreateItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createItem>>,
+    TError,
+    { data: BodyType<UpsertItemRequest>; params: CreateItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createItem>>,
+  TError,
+  { data: BodyType<UpsertItemRequest>; params: CreateItemParams },
+  TContext
+> => {
+  return useMutation(getCreateItemMutationOptions(options));
+};
+
+/**
+ * @summary Edit shop item (admin)
+ */
+export const getUpdateItemUrl = (id: string, params: UpdateItemParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/items/${id}?${stringifiedParams}`
+    : `/api/items/${id}`;
+};
+
+export const updateItem = async (
+  id: string,
+  upsertItemRequest: UpsertItemRequest,
+  params: UpdateItemParams,
+  options?: RequestInit,
+): Promise<ShopItem> => {
+  return customFetch<ShopItem>(getUpdateItemUrl(id, params), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertItemRequest),
+  });
+};
+
+export const getUpdateItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateItem>>,
+    TError,
+    { id: string; data: BodyType<UpsertItemRequest>; params: UpdateItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateItem>>,
+  TError,
+  { id: string; data: BodyType<UpsertItemRequest>; params: UpdateItemParams },
+  TContext
+> => {
+  const mutationKey = ["updateItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateItem>>,
+    { id: string; data: BodyType<UpsertItemRequest>; params: UpdateItemParams }
+  > = (props) => {
+    const { id, data, params } = props ?? {};
+
+    return updateItem(id, data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateItem>>
+>;
+export type UpdateItemMutationBody = BodyType<UpsertItemRequest>;
+export type UpdateItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Edit shop item (admin)
+ */
+export const useUpdateItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateItem>>,
+    TError,
+    { id: string; data: BodyType<UpsertItemRequest>; params: UpdateItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateItem>>,
+  TError,
+  { id: string; data: BodyType<UpsertItemRequest>; params: UpdateItemParams },
+  TContext
+> => {
+  return useMutation(getUpdateItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete shop item (admin)
+ */
+export const getDeleteItemUrl = (id: string, params: DeleteItemParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/items/${id}?${stringifiedParams}`
+    : `/api/items/${id}`;
+};
+
+export const deleteItem = async (
+  id: string,
+  params: DeleteItemParams,
+  options?: RequestInit,
+): Promise<DeleteItem200> => {
+  return customFetch<DeleteItem200>(getDeleteItemUrl(id, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteItem>>,
+    TError,
+    { id: string; params: DeleteItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteItem>>,
+  TError,
+  { id: string; params: DeleteItemParams },
+  TContext
+> => {
+  const mutationKey = ["deleteItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteItem>>,
+    { id: string; params: DeleteItemParams }
+  > = (props) => {
+    const { id, params } = props ?? {};
+
+    return deleteItem(id, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteItem>>
+>;
+
+export type DeleteItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete shop item (admin)
+ */
+export const useDeleteItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteItem>>,
+    TError,
+    { id: string; params: DeleteItemParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteItem>>,
+  TError,
+  { id: string; params: DeleteItemParams },
+  TContext
+> => {
+  return useMutation(getDeleteItemMutationOptions(options));
+};
+
+/**
+ * @summary Buy a shop item with credits
+ */
+export const getBuyItemUrl = (id: string) => {
+  return `/api/items/${id}/buy`;
+};
+
+export const buyItem = async (
+  id: string,
+  buyItemRequest: BuyItemRequest,
+  options?: RequestInit,
+): Promise<BuyItemResponse> => {
+  return customFetch<BuyItemResponse>(getBuyItemUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(buyItemRequest),
+  });
+};
+
+export const getBuyItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buyItem>>,
+    TError,
+    { id: string; data: BodyType<BuyItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof buyItem>>,
+  TError,
+  { id: string; data: BodyType<BuyItemRequest> },
+  TContext
+> => {
+  const mutationKey = ["buyItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof buyItem>>,
+    { id: string; data: BodyType<BuyItemRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return buyItem(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BuyItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof buyItem>>
+>;
+export type BuyItemMutationBody = BodyType<BuyItemRequest>;
+export type BuyItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Buy a shop item with credits
+ */
+export const useBuyItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buyItem>>,
+    TError,
+    { id: string; data: BodyType<BuyItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof buyItem>>,
+  TError,
+  { id: string; data: BodyType<BuyItemRequest> },
+  TContext
+> => {
+  return useMutation(getBuyItemMutationOptions(options));
+};

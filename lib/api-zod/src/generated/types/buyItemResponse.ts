@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AwardResponse {
+export interface BuyItemResponse {
   success: boolean;
   message: string;
-  newCredits?: number;
+  remainingCredits: number;
 }

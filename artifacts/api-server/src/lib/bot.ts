@@ -3,8 +3,8 @@ import { logger } from "./logger";
 
 const HOST = "FriendsMasterHub.aternos.me";
 const PORT = 19276;
-const BOT_USERNAME = "FMH_Bot";
-const MC_VERSION = "1.21.1";
+const BOT_USERNAME = "ChorwaAadmi";
+const MC_VERSION = "1.21.11";
 
 interface PendingAward {
   player: string;

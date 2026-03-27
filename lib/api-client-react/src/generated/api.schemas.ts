@@ -23,6 +23,37 @@ export interface ServerStatus {
   port: number;
 }
 
+export interface AuthRequest {
+  usertag: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  usertag: string;
+  credits: number;
+}
+
+export interface UserProfile {
+  _id: string;
+  usertag: string;
+  credits: number;
+  createdAt: string;
+}
+
+export interface AdminUser {
+  _id: string;
+  usertag: string;
+  password: string;
+  credits: number;
+  createdAt: string;
+}
+
+export interface AdjustCreditsRequest {
+  /** Positive to add, negative to remove */
+  amount: number;
+}
+
 export type BuildStatus = (typeof BuildStatus)[keyof typeof BuildStatus];
 
 export const BuildStatus = {
@@ -65,14 +96,40 @@ export interface UpdateBuildStatusRequest {
 }
 
 export interface AwardBuildRequest {
-  item: string;
-  quantity: number;
+  credits: number;
 }
 
 export interface AwardResponse {
   success: boolean;
   message: string;
-  queued?: boolean;
+  newCredits?: number;
+}
+
+export interface ShopItem {
+  _id: string;
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  creditPrice: number;
+  createdAt: string;
+}
+
+export interface UpsertItemRequest {
+  title: string;
+  description?: string;
+  imageBase64?: string | null;
+  creditPrice: number;
+}
+
+export interface BuyItemRequest {
+  usertag: string;
+  token: string;
+}
+
+export interface BuyItemResponse {
+  success: boolean;
+  message: string;
+  remainingCredits: number;
 }
 
 export type BotStatusPosition = {
@@ -97,6 +154,11 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type GetMeParams = {
+  usertag: string;
+  token: string;
+};
+
 export type GetBuilds200 = {
   builds: Build[];
 };
@@ -115,4 +177,36 @@ export type UpdateBuildStatusParams = {
 
 export type AwardBuildParams = {
   password: string;
+};
+
+export type GetAdminUsersParams = {
+  password: string;
+};
+
+export type GetAdminUsers200 = {
+  users: AdminUser[];
+};
+
+export type AdjustUserCreditsParams = {
+  password: string;
+};
+
+export type GetItems200 = {
+  items: ShopItem[];
+};
+
+export type CreateItemParams = {
+  password: string;
+};
+
+export type UpdateItemParams = {
+  password: string;
+};
+
+export type DeleteItemParams = {
+  password: string;
+};
+
+export type DeleteItem200 = {
+  success: boolean;
 };

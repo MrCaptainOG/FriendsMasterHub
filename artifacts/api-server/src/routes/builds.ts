@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import axios from "axios";
-import { connectMongo, ImageInfo } from "../lib/mongodb";
-import { queueAward } from "../lib/bot";
+import { connectMongo, ImageInfo, User } from "../lib/mongodb";
 
 const router: IRouter = Router();
 const ADMIN_PASSWORD = "9897162621762";
@@ -10,27 +9,20 @@ const IMGBB_API_KEY = "7e3d3f9d6b1ce807a6c0383643a41694";
 async function uploadToImgBB(base64: string): Promise<string> {
   const formData = new URLSearchParams();
   formData.append("key", IMGBB_API_KEY);
-  // Strip data URL prefix if present
   const clean = base64.replace(/^data:image\/[a-z]+;base64,/, "");
   formData.append("image", clean);
-
   const resp = await axios.post("https://api.imgbb.com/1/upload", formData, {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     timeout: 30000,
   });
-
-  if (!resp.data?.data?.url) {
-    throw new Error("ImgBB upload failed");
-  }
+  if (!resp.data?.data?.url) throw new Error("ImgBB upload failed");
   return resp.data.data.url;
 }
 
 // Public gallery
 router.get("/builds", async (_req, res) => {
   await connectMongo();
-  const builds = await ImageInfo.find({ status: "approved" })
-    .sort({ createdAt: -1 })
-    .lean();
+  const builds = await ImageInfo.find({ status: "approved" }).sort({ createdAt: -1 }).lean();
   res.json({ builds });
 });
 
@@ -55,15 +47,9 @@ router.post("/builds", async (req, res) => {
   await connectMongo();
   try {
     const imageUrl = await uploadToImgBB(imageBase64);
-    const build = await ImageInfo.create({
-      title,
-      description,
-      imageUrl,
-      uploaderName,
-      status: "unchecked",
-    });
+    const build = await ImageInfo.create({ title, description, imageUrl, uploaderName, status: "unchecked" });
     res.status(201).json(build);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Failed to upload image or save build" });
   }
 });
@@ -82,12 +68,8 @@ router.patch("/builds/:id/status", async (req, res) => {
     return;
   }
   const update: Record<string, unknown> = { status };
-  if (status === "rejected") {
-    update.rejectedAt = new Date();
-  }
-  const build = await ImageInfo.findByIdAndUpdate(req.params.id, update, {
-    new: true,
-  });
+  if (status === "rejected") update.rejectedAt = new Date();
+  const build = await ImageInfo.findByIdAndUpdate(req.params.id, update, { new: true });
   if (!build) {
     res.status(404).json({ error: "Build not found" });
     return;
@@ -95,16 +77,16 @@ router.patch("/builds/:id/status", async (req, res) => {
   res.json(build);
 });
 
-// Award build
+// Award credits to build uploader
 router.post("/builds/:id/award", async (req, res) => {
   if (req.query.password !== ADMIN_PASSWORD) {
     res.status(401).json({ error: "Invalid password" });
     return;
   }
   await connectMongo();
-  const { item, quantity } = req.body;
-  if (!item || !quantity) {
-    res.status(400).json({ error: "item and quantity required" });
+  const { credits } = req.body;
+  if (!credits || isNaN(Number(credits)) || Number(credits) <= 0) {
+    res.status(400).json({ error: "credits must be a positive number" });
     return;
   }
 
@@ -114,20 +96,23 @@ router.post("/builds/:id/award", async (req, res) => {
     return;
   }
 
-  // Update status to awarded
+  // Update build status
   await ImageInfo.findByIdAndUpdate(req.params.id, { status: "awarded" });
 
-  // Queue award through bot (non-blocking)
-  queueAward(build.uploaderName, item, Number(quantity))
-    .then((result) => {
-      // logged internally
-    })
-    .catch(() => {});
+  // Find user by usertag (uploaderName) and add credits
+  const user = await User.findOneAndUpdate(
+    { usertag: { $regex: new RegExp(`^${build.uploaderName}$`, "i") } },
+    { $inc: { credits: Number(credits) } },
+    { new: true }
+  );
 
+  const newCredits = user?.credits ?? null;
   res.json({
     success: true,
-    message: `Award queued: /give ${build.uploaderName} ${item} ${quantity}`,
-    queued: true,
+    message: user
+      ? `Awarded ${credits} credits to ${build.uploaderName}! They now have ${newCredits} credits.`
+      : `Build marked as awarded, but user "${build.uploaderName}" has no account yet.`,
+    newCredits,
   });
 });
 
@@ -136,17 +121,10 @@ async function cleanupRejected() {
   try {
     await connectMongo();
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const result = await ImageInfo.deleteMany({
-      status: "rejected",
-      rejectedAt: { $lt: cutoff },
-    });
-    if (result.deletedCount > 0) {
-      console.log(`Cleaned up ${result.deletedCount} rejected builds`);
-    }
+    const result = await ImageInfo.deleteMany({ status: "rejected", rejectedAt: { $lt: cutoff } });
+    if (result.deletedCount > 0) console.log(`Cleaned up ${result.deletedCount} rejected builds`);
   } catch {}
 }
-
-// Run cleanup every hour
 setInterval(cleanupRejected, 60 * 60 * 1000);
 cleanupRejected();
 

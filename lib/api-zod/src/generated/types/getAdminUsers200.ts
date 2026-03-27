@@ -5,9 +5,8 @@
  * FriendsMasterHub API
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminUser } from "./adminUser";
 
-export interface AwardResponse {
-  success: boolean;
-  message: string;
-  newCredits?: number;
-}
+export type GetAdminUsers200 = {
+  users: AdminUser[];
+};
