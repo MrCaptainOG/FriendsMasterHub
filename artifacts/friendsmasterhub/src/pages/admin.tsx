@@ -9,13 +9,10 @@ import {
   useCreateItem,
   useUpdateItem,
   useDeleteItem,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  getGetAdminBuildsQueryKey,
   getGetAdminUsersQueryKey,
   getGetItemsQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 
 const ADMIN_PASSWORD = "9897162621762";
@@ -31,10 +28,20 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 type Tab = "builds" | "users" | "items";
-
 interface AwardModal { buildId: string; uploaderName: string; }
 interface ItemFormState { title: string; description: string; creditPrice: string; imageFile: File | null; imagePreview: string | null; }
 interface EditingItem { id: string; title: string; description: string; creditPrice: string; }
+
+function RefreshBtn({ onClick, spinning }: { onClick: () => void; spinning: boolean }) {
+  return (
+    <button onClick={onClick} title="Refresh"
+      className="p-1.5 rounded-lg hover:bg-secondary transition-all text-muted-foreground hover:text-foreground border border-border">
+      <svg className={`w-4 h-4 ${spinning ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    </button>
+  );
+}
 
 function AdminPasswordGate({ onEnter }: { onEnter: (pw: string) => void }) {
   const [pw, setPw] = useState("");
@@ -65,32 +72,35 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<Tab>("builds");
   const qc = useQueryClient();
 
-  // ── Build state ───────────────────────────────────────────────────────────
   const [awardModal, setAwardModal] = useState<AwardModal | null>(null);
   const [awardCredits, setAwardCredits] = useState(50);
   const [buildMsg, setBuildMsg] = useState<string | null>(null);
+  const [buildsSpinning, setBuildsSpinning] = useState(false);
 
-  // ── User state ────────────────────────────────────────────────────────────
   const [userMsg, setUserMsg] = useState<string | null>(null);
   const [creditEdit, setCreditEdit] = useState<{ id: string; amount: string } | null>(null);
+  const [usersSpinning, setUsersSpinning] = useState(false);
 
-  // ── Item state ────────────────────────────────────────────────────────────
   const [showAddItem, setShowAddItem] = useState(false);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemFormState>({ title: "", description: "", creditPrice: "", imageFile: null, imagePreview: null });
   const [itemMsg, setItemMsg] = useState<string | null>(null);
+  const [itemsSpinning, setItemsSpinning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── Queries ───────────────────────────────────────────────────────────────
   const buildsQ = useGetAdminBuilds({ password }, { query: { enabled: !!password, retry: false } });
-  const usersQ = useGetAdminUsers({ password }, { query: { enabled: !!password && activeTab === "users", retry: false } });
-  const itemsQ = useGetItems({ query: { enabled: !!password } });
+  const usersQ  = useGetAdminUsers({ password }, { query: { enabled: !!password && activeTab === "users", retry: false } });
+  const itemsQ  = useGetItems({ query: { enabled: !!password } });
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
-  const { mutate: updateBuildStatus } = useUpdateBuildStatus({ mutation: { onSuccess: () => { buildsQ.refetch(); } } });
+  const { mutate: updateBuildStatus } = useUpdateBuildStatus({ mutation: { onSuccess: () => buildsQ.refetch() } });
   const { mutate: awardBuild, isPending: awarding } = useAwardBuild({
     mutation: {
-      onSuccess: (r) => { setBuildMsg(r.message); setAwardModal(null); buildsQ.refetch(); setTimeout(() => setBuildMsg(null), 5000); },
+      onSuccess: (r) => {
+        setBuildMsg(r.message);
+        setAwardModal(null);
+        buildsQ.refetch();
+        setTimeout(() => setBuildMsg(null), 5000);
+      },
     },
   });
   const { mutate: adjustCredits, isPending: adjusting } = useAdjustUserCredits({
@@ -106,17 +116,35 @@ export default function Admin() {
   });
   const { mutate: createItem, isPending: creating } = useCreateItem({
     mutation: {
-      onSuccess: () => { setShowAddItem(false); resetItemForm(); qc.invalidateQueries({ queryKey: getGetItemsQueryKey() }); itemsQ.refetch(); setItemMsg("Item added!"); setTimeout(() => setItemMsg(null), 3000); },
+      onSuccess: () => {
+        setShowAddItem(false);
+        resetItemForm();
+        qc.invalidateQueries({ queryKey: getGetItemsQueryKey() });
+        itemsQ.refetch();
+        setItemMsg("Item added!");
+        setTimeout(() => setItemMsg(null), 3000);
+      },
     },
   });
   const { mutate: updateItem, isPending: updatingItem } = useUpdateItem({
     mutation: {
-      onSuccess: () => { setEditingItem(null); qc.invalidateQueries({ queryKey: getGetItemsQueryKey() }); itemsQ.refetch(); setItemMsg("Item updated!"); setTimeout(() => setItemMsg(null), 3000); },
+      onSuccess: () => {
+        setEditingItem(null);
+        qc.invalidateQueries({ queryKey: getGetItemsQueryKey() });
+        itemsQ.refetch();
+        setItemMsg("Item updated!");
+        setTimeout(() => setItemMsg(null), 3000);
+      },
     },
   });
   const { mutate: deleteItem } = useDeleteItem({
     mutation: {
-      onSuccess: () => { qc.invalidateQueries({ queryKey: getGetItemsQueryKey() }); itemsQ.refetch(); setItemMsg("Item deleted."); setTimeout(() => setItemMsg(null), 3000); },
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getGetItemsQueryKey() });
+        itemsQ.refetch();
+        setItemMsg("Item deleted.");
+        setTimeout(() => setItemMsg(null), 3000);
+      },
     },
   });
 
@@ -124,81 +152,75 @@ export default function Admin() {
     setItemForm({ title: "", description: "", creditPrice: "", imageFile: null, imagePreview: null });
   }
 
-  // ── Auth check ────────────────────────────────────────────────────────────
-  if (!password) return <AdminPasswordGate onEnter={(pw) => { if (pw === ADMIN_PASSWORD) { setPassword(pw); setAuthError(false); } else { setAuthError(true); } }} />;
-  if (authError) return <AdminPasswordGate onEnter={(pw) => { if (pw === ADMIN_PASSWORD) { setPassword(pw); setAuthError(false); } else { setAuthError(true); } }} />;
+  function handleBuildsRefresh() {
+    setBuildsSpinning(true);
+    buildsQ.refetch().finally(() => setTimeout(() => setBuildsSpinning(false), 600));
+  }
+  function handleUsersRefresh() {
+    setUsersSpinning(true);
+    usersQ.refetch().finally(() => setTimeout(() => setUsersSpinning(false), 600));
+  }
+  function handleItemsRefresh() {
+    setItemsSpinning(true);
+    itemsQ.refetch().finally(() => setTimeout(() => setItemsSpinning(false), 600));
+  }
 
-  // ── Image helper ──────────────────────────────────────────────────────────
-  function readImage(file: File, cb: (b64: string, preview: string) => void) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      cb(result, result);
-    };
-    reader.readAsDataURL(file);
+  if (!password || authError) {
+    return (
+      <AdminPasswordGate
+        onEnter={(pw) => {
+          if (pw === ADMIN_PASSWORD) { setPassword(pw); setAuthError(false); }
+          else { setAuthError(true); }
+        }}
+      />
+    );
   }
 
   function handleItemImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    readImage(file, (_, preview) => {
-      setItemForm(f => ({ ...f, imageFile: file, imagePreview: preview }));
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setItemForm(f => ({ ...f, imageFile: file, imagePreview: result }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function readBase64(file: File): Promise<string> {
+    return new Promise((res) => {
+      const fr = new FileReader();
+      fr.onload = (e) => res(e.target?.result as string);
+      fr.readAsDataURL(file);
     });
   }
 
-  async function submitItemForm(forEdit?: string) {
-    const base64 = itemForm.imageFile
-      ? await new Promise<string>((res) => {
-          const fr = new FileReader();
-          fr.onload = (e) => res(e.target?.result as string);
-          fr.readAsDataURL(itemForm.imageFile!);
-        })
-      : undefined;
-
-    const payload = {
-      title: itemForm.title,
-      description: itemForm.description,
-      creditPrice: Number(itemForm.creditPrice),
-      ...(base64 ? { imageBase64: base64 } : {}),
-    };
-
-    if (forEdit) {
-      updateItem({ id: forEdit, params: { password }, data: payload });
-    } else {
-      createItem({ params: { password }, data: payload });
-    }
+  async function submitAddItem() {
+    const base64 = itemForm.imageFile ? await readBase64(itemForm.imageFile) : undefined;
+    createItem({
+      params: { password },
+      data: { title: itemForm.title, description: itemForm.description, creditPrice: Number(itemForm.creditPrice), ...(base64 ? { imageBase64: base64 } : {}) },
+    });
   }
 
   async function submitEditItem() {
     if (!editingItem) return;
-    const base64 = itemForm.imageFile
-      ? await new Promise<string>((res) => {
-          const fr = new FileReader();
-          fr.onload = (e) => res(e.target?.result as string);
-          fr.readAsDataURL(itemForm.imageFile!);
-        })
-      : undefined;
-
+    const base64 = itemForm.imageFile ? await readBase64(itemForm.imageFile) : undefined;
     updateItem({
       id: editingItem.id,
       params: { password },
-      data: {
-        title: editingItem.title,
-        description: editingItem.description,
-        creditPrice: Number(editingItem.creditPrice),
-        ...(base64 ? { imageBase64: base64 } : {}),
-      },
+      data: { title: editingItem.title, description: editingItem.description, creditPrice: Number(editingItem.creditPrice), ...(base64 ? { imageBase64: base64 } : {}) },
     });
   }
 
   const builds = buildsQ.data?.builds ?? [];
-  const users = usersQ.data?.users ?? [];
-  const items = itemsQ.data?.items ?? [];
+  const users  = usersQ.data?.users  ?? [];
+  const items  = itemsQ.data?.items  ?? [];
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "builds", label: "Build Reviews", icon: "🏗️" },
-    { id: "users", label: "Users", icon: "👥" },
-    { id: "items", label: "Shop Items", icon: "🛒" },
+    { id: "users",  label: "Users",         icon: "👥" },
+    { id: "items",  label: "Shop Items",    icon: "🛒" },
   ];
 
   return (
@@ -210,7 +232,7 @@ export default function Admin() {
             <Link href="/"><button className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 mb-2">← Back</button></Link>
             <h1 className="text-3xl font-bold">Admin Panel</h1>
           </div>
-          <button onClick={() => { setPassword(""); }} className="text-sm text-muted-foreground hover:text-destructive border border-border px-3 py-1.5 rounded-lg transition-colors">
+          <button onClick={() => setPassword("")} className="text-sm text-muted-foreground hover:text-destructive border border-border px-3 py-1.5 rounded-lg transition-colors">
             Logout
           </button>
         </div>
@@ -228,6 +250,10 @@ export default function Admin() {
         {/* ── Builds Tab ─────────────────────────────────────────────────────── */}
         {activeTab === "builds" && (
           <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-muted-foreground text-sm">{builds.length} submissions</p>
+              <RefreshBtn onClick={handleBuildsRefresh} spinning={buildsSpinning} />
+            </div>
             {buildMsg && <div className="mb-4 bg-primary/10 border border-primary/30 text-primary rounded-lg px-4 py-3 text-sm">✅ {buildMsg}</div>}
             {buildsQ.isLoading && <div className="text-center py-20 text-muted-foreground">Loading...</div>}
             {!buildsQ.isLoading && builds.length === 0 && <div className="text-center py-20 text-muted-foreground">No submissions yet.</div>}
@@ -281,11 +307,15 @@ export default function Admin() {
         {/* ── Users Tab ──────────────────────────────────────────────────────── */}
         {activeTab === "users" && (
           <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-muted-foreground text-sm">{users.length} users</p>
+              <RefreshBtn onClick={handleUsersRefresh} spinning={usersSpinning} />
+            </div>
             {userMsg && <div className="mb-4 bg-primary/10 border border-primary/30 text-primary rounded-lg px-4 py-3 text-sm">✅ {userMsg}</div>}
             {usersQ.isLoading && <div className="text-center py-20 text-muted-foreground">Loading users...</div>}
             {!usersQ.isLoading && users.length === 0 && <div className="text-center py-20 text-muted-foreground">No users registered yet.</div>}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              {users.length > 0 && (
+            {users.length > 0 && (
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-secondary/50">
@@ -300,19 +330,15 @@ export default function Admin() {
                     {users.map((user, i) => (
                       <tr key={user._id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? "" : "bg-secondary/20"}`}>
                         <td className="px-4 py-3 font-mono font-bold">{user.usertag}</td>
-                        <td className="px-4 py-3 font-mono text-muted-foreground">{user.password}</td>
+                        <td className="px-4 py-3 font-mono text-muted-foreground text-xs">{user.password}</td>
                         <td className="px-4 py-3 text-right">
                           {creditEdit?.id === user._id ? (
                             <div className="flex items-center gap-2 justify-end">
-                              <input
-                                type="number"
-                                value={creditEdit.amount}
+                              <input type="number" value={creditEdit.amount}
                                 onChange={e => setCreditEdit(ce => ce ? { ...ce, amount: e.target.value } : null)}
                                 placeholder="+10 or -5"
-                                className="w-24 px-2 py-1 rounded border border-border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary/40"
-                              />
-                              <button
-                                disabled={adjusting}
+                                className="w-24 px-2 py-1 rounded border border-border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary/40" />
+                              <button disabled={adjusting}
                                 onClick={() => adjustCredits({ id: user._id, params: { password }, data: { amount: Number(creditEdit.amount) } })}
                                 className="px-2 py-1 bg-primary text-primary-foreground rounded text-xs font-bold disabled:opacity-50">Save</button>
                               <button onClick={() => setCreditEdit(null)} className="px-2 py-1 bg-secondary text-muted-foreground rounded text-xs">✕</button>
@@ -324,48 +350,44 @@ export default function Admin() {
                         <td className="px-4 py-3 text-muted-foreground">{new Date(user.createdAt).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           {creditEdit?.id !== user._id && (
-                            <button
-                              onClick={() => setCreditEdit({ id: user._id, amount: "" })}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-secondary border border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
-                            >Adjust Credits</button>
+                            <button onClick={() => setCreditEdit({ id: user._id, amount: "" })}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-secondary border border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all">
+                              Adjust Credits
+                            </button>
                           )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
         {/* ── Items Tab ──────────────────────────────────────────────────────── */}
         {activeTab === "items" && (
           <>
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-muted-foreground text-sm">{items.length} items in shop</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <p className="text-muted-foreground text-sm">{items.length} items in shop</p>
+                <RefreshBtn onClick={handleItemsRefresh} spinning={itemsSpinning} />
+              </div>
               <button onClick={() => { setShowAddItem(true); resetItemForm(); }}
                 className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:opacity-90 transition-all shadow-md shadow-primary/20">
                 + Add Item
               </button>
             </div>
-
             {itemMsg && <div className="mb-4 bg-primary/10 border border-primary/30 text-primary rounded-lg px-4 py-3 text-sm">{itemMsg}</div>}
-
-            {items.length === 0 && !showAddItem && (
-              <div className="text-center py-20 text-muted-foreground">No shop items yet. Add one!</div>
-            )}
+            {items.length === 0 && !showAddItem && <div className="text-center py-20 text-muted-foreground">No shop items yet. Add one!</div>}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {items.map(item => (
                 <div key={item._id} className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-                  {item.imageUrl ? (
-                    <div className="h-32 overflow-hidden">
-                      <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="h-20 bg-secondary flex items-center justify-center"><span className="text-2xl">📦</span></div>
-                  )}
+                  {item.imageUrl
+                    ? <div className="h-32 overflow-hidden"><img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" /></div>
+                    : <div className="h-20 bg-secondary flex items-center justify-center"><span className="text-2xl">📦</span></div>
+                  }
                   <div className="p-4 flex flex-col flex-1">
                     {editingItem?.id === item._id ? (
                       <div className="space-y-2">
@@ -380,10 +402,8 @@ export default function Admin() {
                           {itemForm.imagePreview && <img src={itemForm.imagePreview} alt="" className="mt-1 h-12 rounded object-cover" />}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <button onClick={submitEditItem} disabled={updatingItem}
-                            className="flex-1 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded disabled:opacity-50">Save</button>
-                          <button onClick={() => { setEditingItem(null); resetItemForm(); }}
-                            className="flex-1 py-1.5 bg-secondary text-muted-foreground text-xs rounded border border-border">Cancel</button>
+                          <button onClick={submitEditItem} disabled={updatingItem} className="flex-1 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded disabled:opacity-50">Save</button>
+                          <button onClick={() => { setEditingItem(null); resetItemForm(); }} className="flex-1 py-1.5 bg-secondary text-muted-foreground text-xs rounded border border-border">Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -438,7 +458,7 @@ export default function Admin() {
                 </div>
                 <div className="flex gap-3 mt-5">
                   <button onClick={() => { setShowAddItem(false); resetItemForm(); }} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-secondary transition-all">Cancel</button>
-                  <button onClick={() => submitItemForm()} disabled={creating || !itemForm.title || !itemForm.creditPrice}
+                  <button onClick={submitAddItem} disabled={creating || !itemForm.title || !itemForm.creditPrice}
                     className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50">
                     {creating ? "Adding..." : "Add Item"}
                   </button>
@@ -446,7 +466,6 @@ export default function Admin() {
               </div>
             )}
 
-            {/* Shared hidden file input */}
             <input ref={fileRef} type="file" accept="image/*" onChange={handleItemImageChange} className="hidden" />
           </>
         )}

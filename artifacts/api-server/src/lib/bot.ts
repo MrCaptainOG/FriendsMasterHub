@@ -6,10 +6,11 @@ const PORT = 19276;
 const BOT_USERNAME = "ChorwaAadmi";
 const MC_VERSION = "1.21.1";
 
-// AFK kick threshold: Aternos default is ~5 min; we move every 45s to stay safe
-const ANTI_AFK_INTERVAL_MS = 45_000;
-// Chat interval: every 4 minutes
-const CHAT_INTERVAL_MS = 4 * 60 * 1000;
+// Movement: change direction every 4s, jump every 12s, sneak every 20s
+const MOVE_CHANGE_MS   = 4_000;
+const JUMP_INTERVAL_MS = 12_000;
+const SNEAK_INTERVAL_MS = 20_000;
+const CHAT_INTERVAL_MS  = 4 * 60 * 1000;  // 4 minutes
 
 interface BotState {
   connected: boolean;
@@ -37,15 +38,24 @@ const state: BotState = {
 
 let bot: ReturnType<typeof mineflayer.createBot> | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
-let afkTimer: NodeJS.Timeout | null = null;
-let chatTimer: NodeJS.Timeout | null = null;
-let posTimer: NodeJS.Timeout | null = null;
+
+// Movement timers
+let moveTimer:  NodeJS.Timeout | null = null;
+let jumpTimer:  NodeJS.Timeout | null = null;
+let sneakTimer: NodeJS.Timeout | null = null;
+let chatTimer:  NodeJS.Timeout | null = null;
+let posTimer:   NodeJS.Timeout | null = null;
+
+// Guard: prevent kicked + end both scheduling a reconnect
+let reconnectScheduled = false;
+
+const DIRS: Array<"forward" | "back" | "left" | "right"> = ["forward", "back", "left", "right"];
+let dirIdx = 0;
 
 const CHAT_MESSAGES = [
   "Having fun building today?",
   "Check out our website for build submissions!",
   "Nice builds everyone! Keep it up!",
-  "Who wants to explore together?",
   "FriendsMasterHub — where friends build together!",
   "Don't forget to submit your builds on the website!",
   "Anyone need help with their build?",
@@ -59,72 +69,91 @@ function addLog(msg: string) {
   logger.info({ botActivity: msg }, "Bot activity");
 }
 
-function clearTimers() {
-  if (afkTimer) { clearInterval(afkTimer); afkTimer = null; }
-  if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
-  if (posTimer) { clearInterval(posTimer); posTimer = null; }
-}
+function clearMovementTimers() {
+  if (moveTimer)  { clearInterval(moveTimer);  moveTimer  = null; }
+  if (jumpTimer)  { clearInterval(jumpTimer);  jumpTimer  = null; }
+  if (sneakTimer) { clearInterval(sneakTimer); sneakTimer = null; }
+  if (chatTimer)  { clearInterval(chatTimer);  chatTimer  = null; }
+  if (posTimer)   { clearInterval(posTimer);   posTimer   = null; }
 
-function scheduleReconnect(delayMs = 15_000) {
-  if (reconnectTimer) clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(() => createBot(), delayMs);
-}
-
-// ── Anti-AFK: runs every 45 seconds, always does something ───────────────────
-let afkTick = 0;
-function doAntiAfk() {
-  if (!bot || !state.connected) return;
-  afkTick++;
-
-  const phase = afkTick % 4;
-  try {
-    if (phase === 0) {
-      // Walk forward then stop
-      bot.setControlState("forward", true);
-      setTimeout(() => bot?.setControlState("forward", false), 1200);
-      addLog("Anti-AFK: walked forward");
-    } else if (phase === 1) {
-      // Jump
-      bot.setControlState("jump", true);
-      setTimeout(() => bot?.setControlState("jump", false), 600);
-      addLog("Anti-AFK: jumped");
-    } else if (phase === 2) {
-      // Look in a random direction
-      const yaw = (Math.random() * Math.PI * 2) - Math.PI;
-      const pitch = (Math.random() - 0.5) * 0.8;
-      bot.look(yaw, pitch, false).catch(() => {});
-      addLog("Anti-AFK: looked around");
-    } else {
-      // Sneak briefly
-      bot.setControlState("sneak", true);
-      setTimeout(() => bot?.setControlState("sneak", false), 800);
-      addLog("Anti-AFK: crouched");
-    }
-  } catch {
-    // silently ignore if bot can't act right now
+  // Release all control states so the bot doesn't get stuck walking
+  if (bot) {
+    try {
+      for (const s of DIRS) bot.setControlState(s, false);
+      bot.setControlState("jump",  false);
+      bot.setControlState("sneak", false);
+    } catch {}
   }
 }
 
-function startActions() {
-  clearTimers();
-  afkTick = 0;
+function scheduleReconnect(delayMs: number) {
+  if (reconnectScheduled) return;
+  reconnectScheduled = true;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    reconnectScheduled = false;
+    createBot();
+  }, delayMs);
+}
 
-  // Anti-AFK: fire immediately then every 45 seconds
-  doAntiAfk();
-  afkTimer = setInterval(doAntiAfk, ANTI_AFK_INTERVAL_MS);
+// ── Constant WASD movement loop ───────────────────────────────────────────────
+function startMovement() {
+  clearMovementTimers();
+  dirIdx = 0;
 
-  // Chat: every 4 minutes, random message
-  let chatIdx = Math.floor(Math.random() * CHAT_MESSAGES.length);
+  // Start walking in the first direction immediately
+  function applyDir() {
+    if (!bot || !state.connected) return;
+    try {
+      // Release old direction
+      for (const d of DIRS) bot.setControlState(d, false);
+      // Cycle through: forward → right → back → left → repeat
+      const dir = DIRS[dirIdx % DIRS.length];
+      dirIdx++;
+      bot.setControlState(dir, true);
+      // Look in the movement direction for realism
+      const yaw = (dirIdx % 4) * (Math.PI / 2);
+      bot.look(yaw, 0, false).catch(() => {});
+      addLog(`Moving ${dir}`);
+    } catch {}
+  }
+
+  applyDir();
+  moveTimer = setInterval(applyDir, MOVE_CHANGE_MS);
+
+  // Jump every 12 seconds
+  jumpTimer = setInterval(() => {
+    if (!bot || !state.connected) return;
+    try {
+      bot.setControlState("jump", true);
+      setTimeout(() => bot?.setControlState("jump", false), 500);
+      addLog("Jumped");
+    } catch {}
+  }, JUMP_INTERVAL_MS);
+
+  // Sneak briefly every 20 seconds
+  sneakTimer = setInterval(() => {
+    if (!bot || !state.connected) return;
+    try {
+      bot.setControlState("sneak", true);
+      setTimeout(() => bot?.setControlState("sneak", false), 800);
+      addLog("Sneaked");
+    } catch {}
+  }, SNEAK_INTERVAL_MS);
+
+  // Chat every 4 minutes
+  let chatIdx = 0;
   chatTimer = setInterval(() => {
     if (!bot || !state.connected) return;
     try {
-      bot.chat(CHAT_MESSAGES[chatIdx % CHAT_MESSAGES.length]);
-      addLog(`Said: "${CHAT_MESSAGES[chatIdx % CHAT_MESSAGES.length]}"`);
+      const msg = CHAT_MESSAGES[chatIdx % CHAT_MESSAGES.length];
+      bot.chat(msg);
+      addLog(`Said: "${msg}"`);
       chatIdx++;
     } catch {}
   }, CHAT_INTERVAL_MS);
 
-  // Position tracker
+  // Position + stats every 5s
   posTimer = setInterval(() => {
     if (!bot?.entity) return;
     const pos = bot.entity.position;
@@ -134,28 +163,30 @@ function startActions() {
       z: Math.round(pos.z * 10) / 10,
     };
     state.health = bot.health ?? null;
-    state.food = bot.food ?? null;
+    state.food   = bot.food   ?? null;
   }, 5000);
 }
 
-function isAfkKick(reason: string): boolean {
-  const lower = reason.toLowerCase();
-  return (
-    lower.includes("afk") ||
-    lower.includes("idle") ||
-    lower.includes("inactiv") ||
-    lower.includes("too long") ||
-    lower.includes("timed out") ||
-    lower.includes("timeout")
-  );
+function isDuplicateLogin(reason: string) {
+  return reason.includes("duplicate_login");
 }
 
+function isServerOffline(reason: string) {
+  const r = reason.toLowerCase();
+  return r.includes("econnrefused") || r.includes("getaddrinfo") || r.includes("enotfound");
+}
+
+// ── Create / destroy bot ──────────────────────────────────────────────────────
 function createBot() {
+  // Fully destroy old instance — remove ALL listeners first to prevent
+  // stale event handlers firing and scheduling a second reconnect
   if (bot) {
-    try { bot.quit(); } catch {}
+    try { bot.removeAllListeners(); } catch {}
+    try { bot.quit(); }               catch {}
     bot = null;
   }
-  clearTimers();
+  clearMovementTimers();
+
   state.connected = false;
   state.onlinePlayers.clear();
 
@@ -169,65 +200,82 @@ function createBot() {
       version: MC_VERSION,
       auth: "offline",
       checkTimeoutInterval: 60_000,
-      // keep-alive so connection doesn't drop silently
       keepAlive: true,
     });
 
+    // ── Spawn ──────────────────────────────────────────────────────────────
     bot.once("spawn", () => {
       state.connected = true;
       state.startTime = Date.now();
-      addLog("Connected and spawned!");
-      startActions();
+      addLog("Connected and spawned! Starting movement...");
+      startMovement();
     });
 
+    // ── Players ────────────────────────────────────────────────────────────
     bot.on("playerJoined", (player) => {
       state.onlinePlayers.add(player.username);
     });
-
     bot.on("playerLeft", (player) => {
       state.onlinePlayers.delete(player.username);
     });
 
+    // ── Chat ───────────────────────────────────────────────────────────────
     bot.on("chat", (username, message) => {
-      if (username !== BOT_USERNAME) {
-        addLog(`<${username}> ${message}`);
-      }
+      if (username !== BOT_USERNAME) addLog(`<${username}> ${message}`);
     });
 
+    // ── Health ─────────────────────────────────────────────────────────────
     bot.on("health", () => {
       state.health = bot?.health ?? null;
-      state.food = bot?.food ?? null;
+      state.food   = bot?.food   ?? null;
     });
 
-    // Respect respawn so bot doesn't stay dead (dead bots look inactive)
+    // ── Death: respawn immediately ─────────────────────────────────────────
     bot.on("death", () => {
       addLog("Died — respawning...");
       try { bot?.respawn(); } catch {}
     });
 
+    // ── Kicked ─────────────────────────────────────────────────────────────
+    // NOTE: 'end' always fires after 'kicked', so we handle reconnect ONLY
+    // here and set reconnectScheduled=true so 'end' is a no-op for reconnect.
     bot.on("kicked", (reason) => {
       state.connected = false;
-      clearTimers();
+      clearMovementTimers();
+
       const raw = typeof reason === "string" ? reason : JSON.stringify(reason);
-      const delay = isAfkKick(raw) ? 5_000 : 20_000;
-      addLog(`Kicked: ${raw.slice(0, 120)}. Reconnecting in ${delay / 1000}s...`);
+      addLog(`Kicked: ${raw.slice(0, 140)}`);
+
+      let delay: number;
+      if (isDuplicateLogin(raw)) {
+        // Another instance (e.g. production) is already connected.
+        // Back off 90s to let it stabilise; we'll replace it cleanly.
+        delay = 90_000;
+        addLog("Duplicate login — waiting 90s before reconnecting...");
+      } else {
+        delay = 20_000;
+      }
       scheduleReconnect(delay);
     });
 
+    // ── End ────────────────────────────────────────────────────────────────
     bot.on("end", (reason) => {
       state.connected = false;
-      clearTimers();
-      addLog(`Connection ended (${reason ?? "unknown"}). Reconnecting in 15s...`);
+      clearMovementTimers();
+      addLog(`Connection ended (${reason ?? "unknown"})`);
+      // Only schedule if kicked didn't already do it
       scheduleReconnect(15_000);
     });
 
+    // ── Error ──────────────────────────────────────────────────────────────
     bot.on("error", (err) => {
-      state.connected = false;
-      clearTimers();
       const msg = (err as Error).message || String(err);
-      // ECONNRESET / ETIMEDOUT → server offline, wait longer
-      const delay = msg.includes("ECONNREFUSED") || msg.includes("getaddrinfo") ? 60_000 : 20_000;
-      addLog(`Error: ${msg}. Reconnecting in ${delay / 1000}s...`);
+      // Don't log ECONNRESET noise when already handling a kick/end
+      if (!state.connected && msg.includes("ECONNRESET")) return;
+      state.connected = false;
+      clearMovementTimers();
+      const delay = isServerOffline(msg) ? 60_000 : 20_000;
+      addLog(`Error: ${msg.slice(0, 100)}. Reconnecting in ${delay / 1000}s...`);
       scheduleReconnect(delay);
     });
   } catch (err) {
