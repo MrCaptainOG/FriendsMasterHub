@@ -58,22 +58,40 @@ export default function Home() {
       <section className="max-w-5xl mx-auto px-4 pb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Status Card */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Server Status</h2>
+          <h2 className="text-xl font-bold mb-4">Server Status</h2>
+
+          {/* Two status badges */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {/* Connection badge */}
             {serverLoading ? (
-              <span className="px-3 py-1 rounded-full text-sm bg-muted text-muted-foreground animate-pulse">
-                Checking...
+              <span className="px-3 py-1.5 rounded-full text-xs bg-muted text-muted-foreground animate-pulse border border-border font-semibold">
+                ⏳ Querying...
               </span>
-            ) : serverStatus?.online ? (
-              <span className="px-3 py-1 rounded-full text-sm bg-primary/20 text-primary border border-primary/30 font-semibold flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
-                ONLINE
+            ) : (serverStatus as { success?: boolean } | undefined)?.success ? (
+              <span className="px-3 py-1.5 rounded-full text-xs bg-primary/15 text-primary border border-primary/30 font-semibold flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                Connection Successful
               </span>
             ) : (
-              <span className="px-3 py-1 rounded-full text-sm bg-destructive/20 text-destructive border border-destructive/30 font-semibold flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-destructive" />
-                OFFLINE
+              <span className="px-3 py-1.5 rounded-full text-xs bg-muted text-muted-foreground border border-border font-semibold flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                Connection Failed
               </span>
+            )}
+
+            {/* Online badge */}
+            {!serverLoading && (
+              serverStatus?.online ? (
+                <span className="px-3 py-1.5 rounded-full text-xs bg-green-500/15 text-green-400 border border-green-500/30 font-semibold flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                  Online
+                </span>
+              ) : (
+                <span className="px-3 py-1.5 rounded-full text-xs bg-destructive/15 text-destructive border border-destructive/30 font-semibold flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive" />
+                  Offline
+                </span>
+              )
             )}
           </div>
 

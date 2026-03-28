@@ -6,27 +6,29 @@ const router: IRouter = Router();
 router.get("/server/status", async (_req, res) => {
   try {
     const resp = await axios.get(
-      "https://api.mcstatus.io/v2/status/java/FriendsMasterHub.aternos.me:19276",
-      { timeout: 8000 }
+      "https://mcapi.us/query/server?ip=FriendsMasterHub.aternos.me&port=19276",
+      { timeout: 10000 }
     );
     const data = resp.data;
     res.json({
+      success: data.status === "success",
       online: data.online === true,
       players: {
-        online: data.players?.online ?? 0,
+        online: data.players?.now ?? 0,
         max: data.players?.max ?? 0,
       },
-      version: data.version?.name_clean ?? data.version?.name ?? "Unknown",
-      motd: data.motd?.clean ?? "",
+      motd: data.motd ?? "",
+      version: data.server?.name ?? "Unknown",
       address: "FriendsMasterHub.aternos.me",
       port: 19276,
     });
-  } catch (err) {
+  } catch {
     res.json({
+      success: false,
       online: false,
       players: { online: 0, max: 0 },
-      version: "Unknown",
       motd: "",
+      version: "Unknown",
       address: "FriendsMasterHub.aternos.me",
       port: 19276,
     });
